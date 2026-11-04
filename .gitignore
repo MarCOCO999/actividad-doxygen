@@ -4,3 +4,5 @@ __pycache__/
 test-results.xml
 flask.log
 flask.pid
+doxygen-warnings.log
+ 

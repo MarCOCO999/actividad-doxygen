@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        // CAMBIAR por tu usuario y nombre de repositorio (sin https://)
-        REPO_URL = 'github.com/MarCOCO999/actividad-doxygen.git'
+        REPO_URL     = 'github.com/MarCOCO999/actividad-doxygen.git'
+        NOTIFY_EMAIL = 'marco.contreras002@gmail.com'
     }
 
     stages {
@@ -35,6 +35,26 @@ pipeline {
                 echo 'Generando documentación con Doxygen...'
                 sh 'doxygen Doxyfile'
                 archiveArtifacts artifacts: 'docs/html/**', fingerprint: true
+            }
+        }
+
+        stage('Check Documentation') {
+            steps {
+                echo 'Verificando el estado de la documentación...'
+                script {
+                    if (!fileExists('docs/html/index.html')) {
+                        error('ALERTA: la documentación no se generó (falta docs/html/index.html)')
+                    }
+                    def advertencias = sh(
+                        script: "grep -i 'warning' doxygen-warnings.log 2>/dev/null | grep -vi 'output language' | wc -l",
+                        returnStdout: true
+                    ).trim().toInteger()
+                    echo "Advertencias de documentación encontradas: ${advertencias}"
+                    if (advertencias > 0) {
+                        unstable("Doxygen reportó ${advertencias} advertencia(s) de documentación")
+                    }
+                }
+                archiveArtifacts artifacts: 'doxygen-warnings.log', allowEmptyArchive: true
             }
         }
 
@@ -77,8 +97,20 @@ pipeline {
         success {
             echo 'Pipeline completado: código probado, documentación generada y app desplegada.'
         }
+        unstable {
+            mail to: env.NOTIFY_EMAIL,
+                 subject: "[Jenkins] ADVERTENCIA en ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "La documentación se generó con advertencias.\nRevisar: ${env.BUILD_URL}\nEl detalle está en el artefacto doxygen-warnings.log."
+        }
         failure {
-            echo 'ALERTA: el pipeline falló. Revisar la etapa con error.'
+            mail to: env.NOTIFY_EMAIL,
+                 subject: "[Jenkins] FALLO en ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "El pipeline falló. Revisar la etapa con error en: ${env.BUILD_URL}console"
+        }
+        fixed {
+            mail to: env.NOTIFY_EMAIL,
+                 subject: "[Jenkins] CORREGIDO ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "El pipeline volvió a funcionar correctamente: ${env.BUILD_URL}"
         }
     }
 }
