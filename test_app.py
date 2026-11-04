@@ -9,7 +9,7 @@ def test_hello_con_nombre():
     client = app.test_client()
     respuesta = client.get('/hello?name=Marco')
     assert respuesta.status_code == 200
-    assert respuesta.data.decode() == "Hello, Marco!"
+    assert respuesta.data.decode() == "Hola, Marco!"
 
 
 def test_hello_sin_nombre():
